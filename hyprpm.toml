@@ -1,0 +1,14 @@
+[repository]
+name = "hyprPluginMaster"
+authors = ["3L0C"]
+commit_pins = [
+
+]
+
+[hyprNStack]
+description = "Defualt Master layout as a plugin."
+authors = ["3L0C"]
+output = "masterLayoutPlugin.so"
+build = [
+    "make all"
+]
