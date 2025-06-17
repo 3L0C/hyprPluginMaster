@@ -61,7 +61,7 @@ SPluginMasterWorkspaceData* CPluginMasterLayout::getMasterWorkspaceData(const WO
 }
 
 std::string CPluginMasterLayout::getLayoutName() {
-    return "Master";
+    return "PluginMaster";
 }
 
 SPluginMasterNodeData* CPluginMasterLayout::getMasterNodeOnWorkspace(const WORKSPACEID& ws) {
