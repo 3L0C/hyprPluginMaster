@@ -5,7 +5,7 @@ commit_pins = [
     ["9958d297641b5c84dcff93f9039d80a5ad37ab00", "d6e788f20e3ef6134b182ee9f8c8801fe20fd01a"]
 ]
 
-[hyprNStack]
+[hyprPluginMaster]
 description = "Defualt Master layout as a plugin."
 authors = ["3L0C"]
 output = "masterLayoutPlugin.so"
