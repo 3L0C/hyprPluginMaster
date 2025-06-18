@@ -1,10 +1,8 @@
 #include "globals.hpp"
+#include "PluginMasterLayout.hpp"
 #include <hyprland/src/config/ConfigManager.hpp>
 #include <hyprland/src/desktop/DesktopTypes.hpp>
 #include <hyprland/src/desktop/Workspace.hpp>
-#include "PluginMasterLayout.hpp"
-#include <unistd.h>
-#include <thread>
 
 // Global layout instance - using plugin-specific class name
 inline std::unique_ptr<CPluginMasterLayout> g_pPluginMasterLayout;
@@ -17,8 +15,7 @@ APICALL EXPORT std::string PLUGIN_API_VERSION() {
 // Workspace cleanup helper
 static void deleteWorkspaceData(int ws) {
     if (g_pPluginMasterLayout) {
-        // TODO: Add workspace cleanup method to PluginMasterLayout if needed
-        // g_pPluginMasterLayout->removeWorkspaceData(ws);  
+        g_pPluginMasterLayout->removeWorkspaceData(ws);
     }
 }
 

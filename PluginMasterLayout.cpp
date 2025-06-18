@@ -44,15 +44,16 @@ SPluginMasterWorkspaceData* CPluginMasterLayout::getMasterWorkspaceData(const WO
     //create on the fly if it doesn't exist yet
     const auto PWORKSPACEDATA   = &m_masterWorkspacesData.emplace_back();
     PWORKSPACEDATA->workspaceID = ws;
-    static auto PORIENTATION    = (Hyprlang::STRING*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:orientation");
+    static auto* const PORIENTATION = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:orientation")->getDataStaticPtr();
+    std::string        SORIENTATION = *PORIENTATION;
 
-    if (*PORIENTATION == "top")
+    if (SORIENTATION == "top")
         PWORKSPACEDATA->orientation = PLUGIN_ORIENTATION_TOP;
-    else if (*PORIENTATION == "right")
+    else if (SORIENTATION == "right")
         PWORKSPACEDATA->orientation = PLUGIN_ORIENTATION_RIGHT;
-    else if (*PORIENTATION == "bottom")
+    else if (SORIENTATION == "bottom")
         PWORKSPACEDATA->orientation = PLUGIN_ORIENTATION_BOTTOM;
-    else if (*PORIENTATION == "center")
+    else if (SORIENTATION == "center")
         PWORKSPACEDATA->orientation = PLUGIN_ORIENTATION_CENTER;
     else
         PWORKSPACEDATA->orientation = PLUGIN_ORIENTATION_LEFT;
@@ -77,17 +78,20 @@ void CPluginMasterLayout::onWindowCreatedTiling(PHLWINDOW pWindow, eDirection di
     if (pWindow->m_isFloating)
         return;
 
-    static auto PNEWONACTIVE = (Hyprlang::STRING*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:new_on_active");
-    static auto PNEWONTOP    = (Hyprlang::INT*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:new_on_top");
-    static auto PNEWSTATUS   = (Hyprlang::STRING*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:new_status");
+    static auto* const PNEWONACTIVE  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:new_on_active")->getDataStaticPtr();
+    std::string        SNEWONACTIVE  = *PNEWONACTIVE;
+    static auto* const PNEWONTOP     = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:new_on_top")->getDataStaticPtr();
+    const  bool        BNEWONTOP     = **PNEWONTOP ? true : false;
+    static auto* const PNEWSTATUS    = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:new_status")->getDataStaticPtr();
+    std::string        SNEWSTATUS    = *PNEWSTATUS;
 
     const auto  PMONITOR = pWindow->m_monitor.lock();
 
-    const bool  BNEWBEFOREACTIVE = *PNEWONACTIVE == "before";
-    const bool  BNEWISMASTER     = *PNEWSTATUS == "master";
+    const bool  BNEWBEFOREACTIVE = SNEWONACTIVE == "before";
+    const bool  BNEWISMASTER     = SNEWSTATUS == "master";
 
     const auto  PNODE = [&]() {
-        if (*PNEWONACTIVE != "none" && !BNEWISMASTER) {
+        if (SNEWONACTIVE != "none" && !BNEWISMASTER) {
             const auto pLastNode = getNodeFromWindow(g_pCompositor->m_lastWindow.lock());
             if (pLastNode && !(pLastNode->isMaster && (getMastersOnWorkspace(pWindow->workspaceID()) == 1 || *PNEWSTATUS == "slave"))) {
                 auto it = std::ranges::find(m_masterNodesData, *pLastNode);
@@ -96,28 +100,29 @@ void CPluginMasterLayout::onWindowCreatedTiling(PHLWINDOW pWindow, eDirection di
                 return &(*m_masterNodesData.emplace(it));
             }
         }
-        return *PNEWONTOP ? &m_masterNodesData.emplace_front() : &m_masterNodesData.emplace_back();
+        return **PNEWONTOP ? &m_masterNodesData.emplace_front() : &m_masterNodesData.emplace_back();
     }();
 
     PNODE->workspaceID = pWindow->workspaceID();
     PNODE->pWindow     = pWindow;
 
     const auto   WINDOWSONWORKSPACE = getNodesOnWorkspace(PNODE->workspaceID);
-    static auto  PMFACT             = (Hyprlang::FLOAT*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:mfact");
-    float        lastSplitPercent   = *PMFACT;
+    static auto* const PMFACT       = (Hyprlang::FLOAT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:mfact")->getDataStaticPtr();
+    float              FMFACT       = **PMFACT;
 
     auto         OPENINGON = isWindowTiled(g_pCompositor->m_lastWindow.lock()) && g_pCompositor->m_lastWindow->m_workspace == pWindow->m_workspace ?
                 getNodeFromWindow(g_pCompositor->m_lastWindow.lock()) :
                 getMasterNodeOnWorkspace(pWindow->workspaceID());
 
     const auto   MOUSECOORDS   = g_pInputManager->getMouseCoordsInternal();
-    static auto  PDROPATCURSOR = (Hyprlang::INT*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:drop_at_cursor");
+    static auto* const PDROPATCURSOR = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:drop_at_cursor")->getDataStaticPtr();
+    int64_t            IDROPATCURSOR = **PDROPATCURSOR;
     ePluginOrientation orientation   = getDynamicOrientation(pWindow->m_workspace);
     const auto   NODEIT        = std::ranges::find(m_masterNodesData, *PNODE);
 
     bool         forceDropAsMaster = false;
     // if dragging window to move, drop it at the cursor position instead of bottom/top of stack
-    if (*PDROPATCURSOR && g_pInputManager->m_dragMode == MBIND_MOVE) {
+    if (IDROPATCURSOR && g_pInputManager->m_dragMode == MBIND_MOVE) {
         if (WINDOWSONWORKSPACE > 2) {
             for (auto it = m_masterNodesData.begin(); it != m_masterNodesData.end(); ++it) {
                 if (it->workspaceID != pWindow->workspaceID())
@@ -177,13 +182,13 @@ void CPluginMasterLayout::onWindowCreatedTiling(PHLWINDOW pWindow, eDirection di
         || WINDOWSONWORKSPACE == 1                                                 //
         || (WINDOWSONWORKSPACE > 2 && !pWindow->m_firstMap && OPENINGON->isMaster) //
         || forceDropAsMaster                                                       //
-        || (*PNEWSTATUS == "inherit" && OPENINGON && OPENINGON->isMaster && g_pInputManager->m_dragMode != MBIND_MOVE)) {
+        || (SNEWSTATUS == "inherit" && OPENINGON && OPENINGON->isMaster && g_pInputManager->m_dragMode != MBIND_MOVE)) {
 
         if (BNEWBEFOREACTIVE) {
             for (auto& nd : m_masterNodesData | std::views::reverse) {
                 if (nd.isMaster && nd.workspaceID == PNODE->workspaceID) {
                     nd.isMaster      = false;
-                    lastSplitPercent = nd.percMaster;
+                    FMFACT = nd.percMaster;
                     break;
                 }
             }
@@ -191,17 +196,17 @@ void CPluginMasterLayout::onWindowCreatedTiling(PHLWINDOW pWindow, eDirection di
             for (auto& nd : m_masterNodesData) {
                 if (nd.isMaster && nd.workspaceID == PNODE->workspaceID) {
                     nd.isMaster      = false;
-                    lastSplitPercent = nd.percMaster;
+                    FMFACT = nd.percMaster;
                     break;
                 }
             }
         }
 
         PNODE->isMaster   = true;
-        PNODE->percMaster = lastSplitPercent;
+        PNODE->percMaster = FMFACT;
 
         // first, check if it isn't too big.
-        if (const auto MAXSIZE = pWindow->requestedMaxSize(); MAXSIZE.x < PMONITOR->m_size.x * lastSplitPercent || MAXSIZE.y < PMONITOR->m_size.y) {
+        if (const auto MAXSIZE = pWindow->requestedMaxSize(); MAXSIZE.x < PMONITOR->m_size.x * FMFACT || MAXSIZE.y < PMONITOR->m_size.y) {
             // we can't continue. make it floating.
             pWindow->m_isFloating = true;
             m_masterNodesData.remove(*PNODE);
@@ -210,11 +215,11 @@ void CPluginMasterLayout::onWindowCreatedTiling(PHLWINDOW pWindow, eDirection di
         }
     } else {
         PNODE->isMaster   = false;
-        PNODE->percMaster = lastSplitPercent;
+        PNODE->percMaster = FMFACT;
 
         // first, check if it isn't too big.
         if (const auto MAXSIZE = pWindow->requestedMaxSize();
-            MAXSIZE.x < PMONITOR->m_size.x * (1 - lastSplitPercent) || MAXSIZE.y < PMONITOR->m_size.y * (1.f / (WINDOWSONWORKSPACE - 1))) {
+            MAXSIZE.x < PMONITOR->m_size.x * (1 - FMFACT) || MAXSIZE.y < PMONITOR->m_size.y * (1.f / (WINDOWSONWORKSPACE - 1))) {
             // we can't continue. make it floating.
             pWindow->m_isFloating = true;
             m_masterNodesData.remove(*PNODE);
@@ -235,7 +240,8 @@ void CPluginMasterLayout::onWindowRemovedTiling(PHLWINDOW pWindow) {
 
     const auto  WORKSPACEID = PNODE->workspaceID;
     const auto  MASTERSLEFT = getMastersOnWorkspace(WORKSPACEID);
-    static auto SMALLSPLIT  = (Hyprlang::INT*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:allow_small_split");
+    static auto* const SMALLSPLIT  = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:allow_small_split")->getDataStaticPtr();
+    int64_t            ISMALLSPLIT = **SMALLSPLIT;
 
     pWindow->unsetWindowData(PRIORITY_LAYOUT);
     pWindow->updateWindowData();
@@ -243,7 +249,7 @@ void CPluginMasterLayout::onWindowRemovedTiling(PHLWINDOW pWindow) {
     if (pWindow->isFullscreen())
         g_pCompositor->setWindowFullscreenInternal(pWindow, FSMODE_NONE);
 
-    if (PNODE->isMaster && (MASTERSLEFT <= 1 || *SMALLSPLIT == 1)) {
+    if (PNODE->isMaster && (MASTERSLEFT <= 1 || ISMALLSPLIT == 1)) {
         // find a new master from top of the list
         for (auto& nd : m_masterNodesData) {
             if (!nd.isMaster && nd.workspaceID == WORKSPACEID) {
@@ -296,7 +302,7 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
 
     if (!PMONITOR)
         return;
-
+    
     if (pWorkspace->m_hasFullscreenWindow) {
         // massive hack from the fullscreen func
         const auto PFULLWINDOW = pWorkspace->getFullscreenWindow();
@@ -323,33 +329,39 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
 
     const auto PMASTERNODE = getMasterNodeOnWorkspace(pWorkspace->m_id);
 
-    if (!PMASTERNODE)
+    if (!PMASTERNODE) {
         return;
+    }
+    
+    const auto MASTERS = getMastersOnWorkspace(pWorkspace->m_id);
+    const auto WINDOWS = getNodesOnWorkspace(pWorkspace->m_id);
 
-    ePluginOrientation orientation         = getDynamicOrientation(pWorkspace);
-    bool         centerMasterWindow  = false;
-    static auto  SLAVECOUNTFORCENTER = (Hyprlang::INT*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:slave_count_for_center_master");
-    static auto  CMFALLBACK          = (Hyprlang::STRING*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:center_master_fallback");
-    static auto  PIGNORERESERVED     = (Hyprlang::INT*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:center_ignores_reserved");
-    static auto  PSMARTRESIZING      = (Hyprlang::INT*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:smart_resizing");
+    ePluginOrientation orientation          = getDynamicOrientation(pWorkspace);
+    bool               centerMasterWindow   = false;
+    static auto* const SLAVECOUNTFORCENTER  = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:slave_count_for_center_master")->getDataStaticPtr();
+    int64_t            ISLAVECOUNTFORCENTER = **SLAVECOUNTFORCENTER;
+    static auto* const CMFALLBACK           = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:center_master_fallback")->getDataStaticPtr();
+    std::string        SCMFALLBACK          = *CMFALLBACK;
+    static auto* const PIGNORERESERVED      = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:center_ignores_reserved")->getDataStaticPtr();
+    int64_t            IIGNORERESERVED      = **PIGNORERESERVED;
+    static auto* const PSMARTRESIZING       = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:smart_resizing")->getDataStaticPtr();
+    int64_t            ISMARTRESIZING       = **PSMARTRESIZING;
 
-    const auto   MASTERS      = getMastersOnWorkspace(pWorkspace->m_id);
-    const auto   WINDOWS      = getNodesOnWorkspace(pWorkspace->m_id);
     const auto   STACKWINDOWS = WINDOWS - MASTERS;
     const auto   WSSIZE       = PMONITOR->m_size - PMONITOR->m_reservedTopLeft - PMONITOR->m_reservedBottomRight;
     const auto   WSPOS        = PMONITOR->m_position + PMONITOR->m_reservedTopLeft;
 
     if (orientation == PLUGIN_ORIENTATION_CENTER) {
-        if (STACKWINDOWS >= *SLAVECOUNTFORCENTER) {
+        if (STACKWINDOWS >= ISLAVECOUNTFORCENTER) {
             centerMasterWindow = true;
         } else {
-            if (*CMFALLBACK == "left")
+            if (SCMFALLBACK == "left")
                 orientation = PLUGIN_ORIENTATION_LEFT;
-            else if (*CMFALLBACK == "right")
+            else if (SCMFALLBACK == "right")
                 orientation = PLUGIN_ORIENTATION_RIGHT;
-            else if (*CMFALLBACK == "top")
+            else if (SCMFALLBACK == "top")
                 orientation = PLUGIN_ORIENTATION_TOP;
-            else if (*CMFALLBACK == "bottom")
+            else if (SCMFALLBACK == "bottom")
                 orientation = PLUGIN_ORIENTATION_BOTTOM;
             else
                 orientation = PLUGIN_ORIENTATION_LEFT;
@@ -362,7 +374,7 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
     float       masterAccumulatedSize = 0;
     float       slaveAccumulatedSize  = 0;
 
-    if (*PSMARTRESIZING) {
+    if (ISMARTRESIZING) {
         // check the total width and height so that later
         // if larger/smaller than screen size them down/up
         for (auto const& nd : m_masterNodesData) {
@@ -377,8 +389,9 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
 
     // compute placement of master window(s)
     if (WINDOWS == 1 && !centerMasterWindow) {
-        static auto PALWAYSKEEPPOSITION = (Hyprlang::INT*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:always_keep_position");
-        if (*PALWAYSKEEPPOSITION) {
+        static auto* const PALWAYSKEEPPOSITION = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:always_keep_position")->getDataStaticPtr();
+        int64_t            IALWAYSKEEPPOSITION = **PALWAYSKEEPPOSITION;
+        if (IALWAYSKEEPPOSITION) {
             const float WIDTH = WSSIZE.x * PMASTERNODE->percMaster;
             float       nextX = 0;
 
@@ -414,7 +427,7 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
             if (WIDTH > widthLeft * 0.9f && mastersLeft > 1)
                 WIDTH = widthLeft * 0.9f;
 
-            if (*PSMARTRESIZING) {
+            if (ISMARTRESIZING) {
                 nd.percSize *= WSSIZE.x / masterAccumulatedSize;
                 WIDTH = masterAverageSize * nd.percSize;
             }
@@ -428,7 +441,7 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
             nextX += WIDTH;
         }
     } else { // orientation left, right or center
-        float WIDTH       = *PIGNORERESERVED && centerMasterWindow ? PMONITOR->m_size.x : WSSIZE.x;
+        float WIDTH       = IIGNORERESERVED && centerMasterWindow ? PMONITOR->m_size.x : WSSIZE.x;
         float heightLeft  = WSSIZE.y;
         int   mastersLeft = MASTERS;
         float nextX       = 0;
@@ -440,7 +453,7 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
         if (orientation == PLUGIN_ORIENTATION_RIGHT) {
             nextX = WSSIZE.x - WIDTH;
         } else if (centerMasterWindow) {
-            nextX = ((*PIGNORERESERVED && centerMasterWindow ? PMONITOR->m_size.x : WSSIZE.x) - WIDTH) / 2;
+            nextX = ((IIGNORERESERVED && centerMasterWindow ? PMONITOR->m_size.x : WSSIZE.x) - WIDTH) / 2;
         }
 
         for (auto& nd : m_masterNodesData) {
@@ -451,13 +464,13 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
             if (HEIGHT > heightLeft * 0.9f && mastersLeft > 1)
                 HEIGHT = heightLeft * 0.9f;
 
-            if (*PSMARTRESIZING) {
+            if (ISMARTRESIZING) {
                 nd.percSize *= WSSIZE.y / masterAccumulatedSize;
                 HEIGHT = masterAverageSize * nd.percSize;
             }
 
             nd.size     = Vector2D(WIDTH, HEIGHT);
-            nd.position = (*PIGNORERESERVED && centerMasterWindow ? PMONITOR->m_position : WSPOS) + Vector2D(nextX, nextY);
+            nd.position = (IIGNORERESERVED && centerMasterWindow ? PMONITOR->m_position : WSPOS) + Vector2D(nextX, nextY);
             applyNodeDataToWindow(&nd);
 
             mastersLeft--;
@@ -488,7 +501,7 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
             if (WIDTH > widthLeft * 0.9f && slavesLeft > 1)
                 WIDTH = widthLeft * 0.9f;
 
-            if (*PSMARTRESIZING) {
+            if (ISMARTRESIZING) {
                 nd.percSize *= WSSIZE.x / slaveAccumulatedSize;
                 WIDTH = slaveAverageSize * nd.percSize;
             }
@@ -518,7 +531,7 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
             if (HEIGHT > heightLeft * 0.9f && slavesLeft > 1)
                 HEIGHT = heightLeft * 0.9f;
 
-            if (*PSMARTRESIZING) {
+            if (ISMARTRESIZING) {
                 nd.percSize *= WSSIZE.y / slaveAccumulatedSize;
                 HEIGHT = slaveAverageSize * nd.percSize;
             }
@@ -532,7 +545,7 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
             nextY += HEIGHT;
         }
     } else { // slaves for centered master window(s)
-        const float WIDTH       = ((*PIGNORERESERVED ? PMONITOR->m_size.x : WSSIZE.x) - PMASTERNODE->size.x) / 2.0;
+        const float WIDTH       = ((IIGNORERESERVED ? PMONITOR->m_size.x : WSSIZE.x) - PMASTERNODE->size.x) / 2.0;
         float       heightLeft  = 0;
         float       heightLeftL = WSSIZE.y;
         float       heightLeftR = WSSIZE.y;
@@ -540,7 +553,7 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
         float       nextY       = 0;
         float       nextYL      = 0;
         float       nextYR      = 0;
-        bool        onRight     = *CMFALLBACK == "right";
+        bool        onRight     = SCMFALLBACK == "right";
         int         slavesLeftL = 1 + (slavesLeft - 1) / 2;
         int         slavesLeftR = slavesLeft - slavesLeftL;
 
@@ -554,7 +567,7 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
         float       slaveAccumulatedHeightL = 0;
         float       slaveAccumulatedHeightR = 0;
 
-        if (*PSMARTRESIZING) {
+        if (ISMARTRESIZING) {
             for (auto const& nd : m_masterNodesData) {
                 if (nd.workspaceID != pWorkspace->m_id || nd.isMaster)
                     continue;
@@ -567,7 +580,7 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
                 onRight = !onRight;
             }
 
-            onRight = *CMFALLBACK == "right";
+            onRight = SCMFALLBACK == "right";
         }
 
         for (auto& nd : m_masterNodesData) {
@@ -575,7 +588,7 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
                 continue;
 
             if (onRight) {
-                nextX      = WIDTH + PMASTERNODE->size.x - (*PIGNORERESERVED ? PMONITOR->m_reservedTopLeft.x : 0);
+                nextX      = WIDTH + PMASTERNODE->size.x - (IIGNORERESERVED ? PMONITOR->m_reservedTopLeft.x : 0);
                 nextY      = nextYR;
                 heightLeft = heightLeftR;
                 slavesLeft = slavesLeftR;
@@ -590,7 +603,7 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
             if (HEIGHT > heightLeft * 0.9f && slavesLeft > 1)
                 HEIGHT = heightLeft * 0.9f;
 
-            if (*PSMARTRESIZING) {
+            if (ISMARTRESIZING) {
                 if (onRight) {
                     nd.percSize *= WSSIZE.y / slaveAccumulatedHeightR;
                     HEIGHT = slaveAverageHeightR * nd.percSize;
@@ -600,7 +613,7 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
                 }
             }
 
-            nd.size     = Vector2D(*PIGNORERESERVED ? (WIDTH - (onRight ? PMONITOR->m_reservedBottomRight.x : PMONITOR->m_reservedTopLeft.x)) : WIDTH, HEIGHT);
+            nd.size     = Vector2D(IIGNORERESERVED ? (WIDTH - (onRight ? PMONITOR->m_reservedBottomRight.x : PMONITOR->m_reservedTopLeft.x)) : WIDTH, HEIGHT);
             nd.position = WSPOS + Vector2D(nextX, nextY);
             applyNodeDataToWindow(&nd);
 
@@ -621,6 +634,8 @@ void CPluginMasterLayout::calculateWorkspace(PHLWORKSPACE pWorkspace) {
 
 void CPluginMasterLayout::applyNodeDataToWindow(SPluginMasterNodeData* pNode) {
     PHLMONITOR PMONITOR = nullptr;
+    
+    const auto PWINDOW = pNode->pWindow.lock();
 
     if (g_pCompositor->isWorkspaceSpecial(pNode->workspaceID)) {
         for (auto const& m : g_pCompositor->m_monitors) {
@@ -633,17 +648,16 @@ void CPluginMasterLayout::applyNodeDataToWindow(SPluginMasterNodeData* pNode) {
         PMONITOR = g_pCompositor->getWorkspaceByID(pNode->workspaceID)->m_monitor.lock();
 
     if (!PMONITOR) {
-        Debug::log(ERR, "Orphaned Node {}!!", pNode);
         return;
     }
-
+    
     // for gaps outer
     const bool DISPLAYLEFT   = STICKS(pNode->position.x, PMONITOR->m_position.x + PMONITOR->m_reservedTopLeft.x);
     const bool DISPLAYRIGHT  = STICKS(pNode->position.x + pNode->size.x, PMONITOR->m_position.x + PMONITOR->m_size.x - PMONITOR->m_reservedBottomRight.x);
     const bool DISPLAYTOP    = STICKS(pNode->position.y, PMONITOR->m_position.y + PMONITOR->m_reservedTopLeft.y);
     const bool DISPLAYBOTTOM = STICKS(pNode->position.y + pNode->size.y, PMONITOR->m_position.y + PMONITOR->m_size.y - PMONITOR->m_reservedBottomRight.y);
 
-    const auto PWINDOW = pNode->pWindow.lock();
+    // const auto PWINDOW = pNode->pWindow.lock();
     // get specific gaps and rules for this workspace,
     // if user specified them in config
     const auto WORKSPACERULE = g_pConfigManager->getWorkspaceRuleFor(PWINDOW->m_workspace);
@@ -664,7 +678,6 @@ void CPluginMasterLayout::applyNodeDataToWindow(SPluginMasterNodeData* pNode) {
     auto        gapsOut = WORKSPACERULE.gapsOut.value_or(*PGAPSOUT);
 
     if (!validMapped(PWINDOW)) {
-        Debug::log(ERR, "Node {} holding invalid {}!!", pNode, PWINDOW);
         return;
     }
 
@@ -688,9 +701,10 @@ void CPluginMasterLayout::applyNodeDataToWindow(SPluginMasterNodeData* pNode) {
     calcSize            = calcSize - (RESERVED.topLeft + RESERVED.bottomRight);
 
     if (PWINDOW->onSpecialWorkspace() && !PWINDOW->isFullscreen()) {
-        static auto PSCALEFACTOR = (Hyprlang::FLOAT*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:special_scale_factor");
+        static auto* const PSCALEFACTOR = (Hyprlang::FLOAT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:special_scale_factor")->getDataStaticPtr();
+        float              FSCALEFACTOR = **PSCALEFACTOR;
 
-        CBox        wb = {calcPos + (calcSize - calcSize * *PSCALEFACTOR) / 2.f, calcSize * *PSCALEFACTOR};
+        CBox        wb = {calcPos + (calcSize - calcSize * FSCALEFACTOR) / 2.f, calcSize * FSCALEFACTOR};
         wb.round(); // avoid rounding mess
 
         *PWINDOW->m_realPosition = wb.pos();
@@ -702,7 +716,7 @@ void CPluginMasterLayout::applyNodeDataToWindow(SPluginMasterNodeData* pNode) {
         *PWINDOW->m_realPosition = wb.pos();
         *PWINDOW->m_realSize     = wb.size();
     }
-
+    
     if (m_forceWarps && !**PANIMATE) {
         g_pHyprRenderer->damageWindow(PWINDOW);
 
@@ -736,8 +750,10 @@ void CPluginMasterLayout::resizeActiveWindow(const Vector2D& pixResize, eRectCor
     }
 
     const auto   PMONITOR            = PWINDOW->m_monitor.lock();
-    static auto  SLAVECOUNTFORCENTER = (Hyprlang::INT*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:slave_count_for_center_master");
-    static auto  PSMARTRESIZING      = (Hyprlang::INT*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:smart_resizing");
+    static auto* const SLAVECOUNTFORCENTER  = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:slave_count_for_center_master")->getDataStaticPtr();
+    int64_t            ISLAVECOUNTFORCENTER = **SLAVECOUNTFORCENTER;
+    static auto* const PSMARTRESIZING = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:smart_resizing")->getDataStaticPtr();
+    int64_t            ISMARTRESIZING = **PSMARTRESIZING;
 
     const bool   DISPLAYBOTTOM = STICKS(PWINDOW->m_position.y + PWINDOW->m_size.y, PMONITOR->m_position.y + PMONITOR->m_size.y - PMONITOR->m_reservedBottomRight.y);
     const bool   DISPLAYRIGHT  = STICKS(PWINDOW->m_position.x + PWINDOW->m_size.x, PMONITOR->m_position.x + PMONITOR->m_size.x - PMONITOR->m_reservedBottomRight.x);
@@ -753,7 +769,7 @@ void CPluginMasterLayout::resizeActiveWindow(const Vector2D& pixResize, eRectCor
     const auto   STACKWINDOWS = WINDOWS - MASTERS;
 
     ePluginOrientation orientation = getDynamicOrientation(PWINDOW->m_workspace);
-    bool         centered    = orientation == PLUGIN_ORIENTATION_CENTER && (STACKWINDOWS >= *SLAVECOUNTFORCENTER);
+    bool         centered    = orientation == PLUGIN_ORIENTATION_CENTER && (STACKWINDOWS >= ISLAVECOUNTFORCENTER);
     double       delta       = 0;
 
     if (getNodesOnWorkspace(PWINDOW->workspaceID()) == 1 && !centered)
@@ -768,10 +784,10 @@ void CPluginMasterLayout::resizeActiveWindow(const Vector2D& pixResize, eRectCor
         case PLUGIN_ORIENTATION_TOP: delta = pixResize.y / PMONITOR->m_size.y; break;
         case PLUGIN_ORIENTATION_CENTER:
             delta = pixResize.x / PMONITOR->m_size.x;
-            if (STACKWINDOWS >= *SLAVECOUNTFORCENTER) {
+            if (STACKWINDOWS >= ISLAVECOUNTFORCENTER) {
                 if (!NONE || !PNODE->isMaster)
                     delta *= 2;
-                if ((!PNODE->isMaster && DISPLAYLEFT) || (PNODE->isMaster && LEFT && *PSMARTRESIZING))
+                if ((!PNODE->isMaster && DISPLAYLEFT) || (PNODE->isMaster && LEFT && ISMARTRESIZING))
                     delta = -delta;
             }
             break;
@@ -780,8 +796,10 @@ void CPluginMasterLayout::resizeActiveWindow(const Vector2D& pixResize, eRectCor
 
     const auto workspaceIdForResizing = PMONITOR->m_activeSpecialWorkspace ? PMONITOR->activeSpecialWorkspaceID() : PMONITOR->activeWorkspaceID();
     for (auto& n : m_masterNodesData) {
-        if (n.isMaster && n.workspaceID == workspaceIdForResizing)
+        if (n.isMaster && n.workspaceID == workspaceIdForResizing) {
+            float oldPercMaster = n.percMaster;
             n.percMaster = std::clamp(n.percMaster + delta, 0.05, 0.95);
+        }
     }
 
     // check the up/down resize
@@ -797,7 +815,7 @@ void CPluginMasterLayout::resizeActiveWindow(const Vector2D& pixResize, eRectCor
     const auto SIZE = isStackVertical ? WSSIZE.y / nodesInSameColumn : WSSIZE.x / nodesInSameColumn;
 
     if (RESIZEDELTA != 0 && nodesInSameColumn > 1) {
-        if (!*PSMARTRESIZING) {
+        if (!ISMARTRESIZING) {
             PNODE->percSize = std::clamp(PNODE->percSize + RESIZEDELTA / SIZE, 0.05, 1.95);
         } else {
             const auto  NODEIT    = std::ranges::find(m_masterNodesData, *PNODE);
@@ -1009,6 +1027,7 @@ void CPluginMasterLayout::alterSplitRatio(PHLWINDOW pWindow, float ratio, bool e
     const auto PMASTER = getMasterNodeOnWorkspace(pWindow->workspaceID());
 
     float      newRatio = exact ? ratio : PMASTER->percMaster + ratio;
+    float      oldPercMaster = PMASTER->percMaster;
     PMASTER->percMaster = std::clamp(newRatio, 0.05f, 0.95f);
 
     recalculateMonitor(pWindow->monitorID());
@@ -1050,10 +1069,11 @@ std::any CPluginMasterLayout::layoutMessage(SLayoutMessageHeader header, std::st
         if (header.pWindow->isFullscreen()) {
             const auto  PWORKSPACE        = header.pWindow->m_workspace;
             const auto  FSMODE            = header.pWindow->m_fullscreenState.internal;
-            static auto INHERITFULLSCREEN = (Hyprlang::INT*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:inherit_fullscreen");
+            static auto* const INHERITFULLSCREEN  = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:inherit_fullscreen")->getDataStaticPtr();
+            int64_t            IINHERITFULLSCREEN = **INHERITFULLSCREEN;
             g_pCompositor->setWindowFullscreenInternal(header.pWindow, FSMODE_NONE);
             g_pCompositor->focusWindow(PWINDOWTOCHANGETO);
-            if (*INHERITFULLSCREEN)
+            if (IINHERITFULLSCREEN)
                 g_pCompositor->setWindowFullscreenInternal(PWINDOWTOCHANGETO, FSMODE);
         } else {
             g_pCompositor->focusWindow(PWINDOWTOCHANGETO);
@@ -1068,7 +1088,6 @@ std::any CPluginMasterLayout::layoutMessage(SLayoutMessageHeader header, std::st
     CVarList vars(message, 0, ' ');
 
     if (vars.size() < 1 || vars[0].empty()) {
-        Debug::log(ERR, "layoutmsg called without params");
         return 0;
     }
 
@@ -1209,9 +1228,10 @@ std::any CPluginMasterLayout::layoutMessage(SLayoutMessageHeader header, std::st
 
         const auto  WINDOWS    = getNodesOnWorkspace(header.pWindow->workspaceID());
         const auto  MASTERS    = getMastersOnWorkspace(header.pWindow->workspaceID());
-        static auto SMALLSPLIT = (Hyprlang::INT*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:allow_small_split");
+        static auto* const SMALLSPLIT  = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:allow_small_split")->getDataStaticPtr();
+        int64_t            ISMALLSPLIT = **SMALLSPLIT;
 
-        if (MASTERS + 2 > WINDOWS && *SMALLSPLIT == 0)
+        if (MASTERS + 2 > WINDOWS && ISMALLSPLIT == 0)
             return 0;
 
         g_pCompositor->setWindowFullscreenInternal(header.pWindow, FSMODE_NONE);
@@ -1442,7 +1462,8 @@ void CPluginMasterLayout::replaceWindowDataWith(PHLWINDOW from, PHLWINDOW to) {
 }
 
 Vector2D CPluginMasterLayout::predictSizeForNewWindowTiled() {
-    static auto PNEWSTATUS = (Hyprlang::STRING*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:new_status");
+    static auto* const PNEWSTATUS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:pluginmaster:new_status")->getDataStaticPtr();
+    std::string        SNEWSTATUS = *PNEWSTATUS;
 
     if (!g_pCompositor->m_lastMonitor)
         return {};
@@ -1456,7 +1477,7 @@ Vector2D CPluginMasterLayout::predictSizeForNewWindowTiled() {
     if (!MASTER) // wtf
         return {};
 
-    if (*PNEWSTATUS == "master") {
+    if (SNEWSTATUS == "master") {
         return MASTER->size;
     } else {
         const auto SLAVES = NODES - getMastersOnWorkspace(g_pCompositor->m_lastMonitor->m_activeWorkspace->m_id);
