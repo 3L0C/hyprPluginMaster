@@ -13,20 +13,19 @@ The same as master, but wrapped in a plugin.
 ```
 plugin {
     pluginmaster {
-        orientation = left
-        mfact = 0.55f
+        allow_small_split = false
+        special_scale_factor = 1.0
+        mfact = 0.55
         new_status = slave
-        new_on_top = 0
+        new_on_top = false
         new_on_active = none
-        inherit_fullscreen = 1
-        special_scale_factor = 1.0f
-        smart_resizing = 1
-        drop_at_cursor = 1
-        allow_small_split = 0
-        always_keep_position = 0
+        orientation = left
+        inherit_fullscreen = true
         slave_count_for_center_master = 2
         center_master_fallback = left
-        center_ignores_reserved = 0
+        smart_resizing = true
+        drop_at_cursor = true
+        always_keep_position = false
     }
 }
 ```
