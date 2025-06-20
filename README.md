@@ -35,7 +35,7 @@ plugin {
 
 ## Hyprpm (recommended)
 
-```
+```sh
 hyprpm add https://github.com/3L0C/hyprPluginMaster
 hyprpm enable hyprPluginMaster 
 hyprctl keyword general:layout pluginmaster
@@ -48,7 +48,7 @@ If you don’t have Hyprland headers installed, follow the
 wiki](https://wiki.hypr.land/Plugins/Using-Plugins/#manual).
 Then: 
 
-```
+```sh
 make 
 mkdir -p ~/.config/hypr/plugins
 cp masterLayoutPlugin.so ~/.config/hypr/plugins
@@ -57,3 +57,17 @@ hyprctl plugin load ~/.config/hypr/plugins/masterLayoutPlugin.so
 hyprctl keyword general:layout pluginmaster
 ```
 
+## Testing
+
+To validate parity between builtin Master Layout and the
+plugin:
+1. Follow the manual install instructions
+2. Start your test instance of Hyprland. The script assumes
+you are running within an existing Hyprland instance (i.e.,
+0). If you are not, modify hypr_plugin_testing_framework.sh
+to the correct instance. 
+3. Make the script executable `chmod +x
+   hypr_plugin_master_test.sh`.
+4. Run the script `./hypr_plugin_master_test.sh`.
+5. Allow your test Hyprland to load the plugin.
+6. Then press enter on the terminal where you ran the test script.
