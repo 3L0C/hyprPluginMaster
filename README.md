@@ -61,6 +61,7 @@ hyprctl keyword general:layout pluginmaster
 
 To validate parity between builtin Master Layout and the
 plugin:
+
 1. Follow the manual install instructions
 2. Start your test instance of Hyprland. The script assumes
 you are running within an existing Hyprland instance (i.e.,
@@ -71,3 +72,11 @@ to the correct instance.
 4. Run the script `./hypr_plugin_master_test.sh`.
 5. Allow your test Hyprland to load the plugin.
 6. Then press enter on the terminal where you ran the test script.
+
+**NOTE**: The test will execute commands to spawn terminal
+windows (how can you test a layout without windows?). The
+terminal is `kitty`. To give some variety, it will spawn
+`kitty` with some terminal programs, namely, `htop`, `top`,
+`neofetch`, and `vim`. If you do not have these programs,
+you can modify the `spawn_test_clients()` procedure in
+`hypr_plugin_testing_framework.sh`. 
